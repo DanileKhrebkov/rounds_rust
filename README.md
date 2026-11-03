@@ -1,5 +1,4 @@
-# remove this file in your pull request.
- # ROUNDS White-Room Prototype — Bevy 0.19 Step-by-Step (From Step 1)
+# ROUNDS White-Room Prototype — Bevy 0.19 Step-by-Step (From Step 1)
 
 **Bevy 0.19 API constraints applied throughout:** `Resource` is now a subtrait of `Component` — do not derive both on the same type . `Time::delta_seconds()` is renamed to `delta_secs()` . `Camera2dBundle` is gone — use `Camera2d` unit struct . Prefer `Sprite::from_color(color, size)` for prototyping . `rand` is on 0.10 in the 0.19 ecosystem — `thread_rng` becomes `rng()` and `RngCore` trait becomes `Rng` .
 
