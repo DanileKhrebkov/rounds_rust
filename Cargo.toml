@@ -1,0 +1,29 @@
+[package]
+name = "rounds_white"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19", default-features = false, features = [
+    "bevy_sprite",   # Sprite (players)
+    "bevy_text",     # the `text!` counter in Step 2
+    "bevy_ui",
+    "bevy_render",
+    "multi_threaded",
+    "x11",           # Linux windowing backend; default is wayland, which is absent in CI/sandboxes
+]
+}
+rand = "0.10"
+
+# Keep the dev profile usable for a white-room prototype: Bevy is enormous and an
+# unoptimised debug build stutters badly. `opt-level = 1` on dependencies is the
+# standard trade-off; our own code stays at 0.
+# `debug = false` is not a style choice: this sandbox has ~2 GB RAM and no swap,
+# and the default `-C debuginfo=2` makes rustc OOM (SIGKILL) while compiling
+# bevy_render. Drop it locally if you want backtraces with line numbers.
+[profile.dev]
+opt-level = 0
+debug = false
+
+[profile.dev.package."*"]
+opt-level = 1
