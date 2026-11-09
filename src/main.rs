@@ -13,5 +13,6 @@ fn main() {
         .init_resource::<resources::DraftState>()
         .init_resource::<resources::CardPool>()
         .add_systems(Startup, systems::lifecycle::setup)
+        .add_systems(Update, systems::movement::gravity_system)
         .run();
 }

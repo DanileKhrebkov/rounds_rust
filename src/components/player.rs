@@ -29,7 +29,7 @@ pub struct Velocity {
     pub y: f32,
 }
 
-/// True while the player is resting on the ground plane. Gates jumping in Step 4.
+/// True while the player is resting on the ground plane. Gates jumping in Step 5.
 #[derive(Component)]
 pub struct OnGround(pub bool);
 
@@ -37,7 +37,7 @@ pub struct OnGround(pub bool);
 #[derive(Component)]
 pub struct MoveSpeed(pub f32);
 
-/// Blocking stance. Read by the hit-detection system in Step 6.
+/// Blocking stance. Read by the hit-detection system in Step 9.
 #[derive(Component)]
 pub struct BlockState {
     pub active: bool,
@@ -49,6 +49,6 @@ pub struct Ammo {
     pub max: u32,
 }
 
-/// `-1.0` = facing left, `1.0` = facing right. Used to orient shots in Step 5.
+/// `-1.0` = facing left, `1.0` = facing right. Used to orient shots in Step 7.
 #[derive(Component)]
 pub struct Facing(pub f32);
