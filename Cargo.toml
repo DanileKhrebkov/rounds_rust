@@ -5,22 +5,21 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = [
-    "bevy_sprite",   # Sprite (players)
-    "bevy_text",     # the `text!` counter in Step 2
-    "bevy_ui",
-    "bevy_render",
+    "bevy_sprite",         # Sprite (players, projectiles)
+    "bevy_text",           # HUD text (Step 2+)
+    "bevy_ui",             # UI layout for HUD
+    "bevy_render",         # renderer core
+    "bevy_core_pipeline",  # Camera2dPlugin + 2D render graph — БЕЗ ЭТОГО ОКНО СЕРОЕ
     "multi_threaded",
-    "x11",           # Linux windowing backend; default is wayland, which is absent in CI/sandboxes
-]
-}
+    "x11",                 # Linux windowing (в sandbox/CI нет Wayland)
+] }
 rand = "0.10"
 
-# Keep the dev profile usable for a white-room prototype: Bevy is enormous and an
-# unoptimised debug build stutters badly. `opt-level = 1` on dependencies is the
-# standard trade-off; our own code stays at 0.
-# `debug = false` is not a style choice: this sandbox has ~2 GB RAM and no swap,
-# and the default `-C debuginfo=2` makes rustc OOM (SIGKILL) while compiling
-# bevy_render. Drop it locally if you want backtraces with line numbers.
+# Bevy огромен; в debug-сборке без оптимизаций зависимостей будет статтеринг.
+# `opt-level = 1` для зависимостей — стандартный компромисс, наш код остаётся на 0.
+# `debug = false` — потому что ~2 GB RAM без swap: `-C debuginfo=2` даёт OOM
+# (SIGKILL) при компиляции bevy_render. Верните `debug = 1` локально, если нужны
+# номера строк в стек-трейсах.
 [profile.dev]
 opt-level = 0
 debug = false

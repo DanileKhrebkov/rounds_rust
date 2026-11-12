@@ -1,24 +1,30 @@
 use bevy::prelude::*;
 
-/// Tunables for the whole prototype.
-///
-/// Bevy 0.19: `Resource` is a subtrait of `Component`, so derive **only**
-/// `Resource` — deriving both is a compile error.
 #[derive(Resource)]
 pub struct Config {
-    /// World units / s². Negative = downward.
     pub gravity: f32,
-    /// Instant vertical velocity applied on jump (world units / s).
     pub jump_impulse: f32,
-    /// Ground plane: players rest with their centre at this y.
     pub ground_y: f32,
     pub player_radius: f32,
-    /// Projectile speed in world units / s.
     pub projectile_speed: f32,
     pub projectile_damage: f32,
     pub projectile_radius: f32,
-    /// Seconds before a projectile despawns.
     pub projectile_lifetime: f32,
+
+    pub base_ammo: u32,
+    pub base_health: f32,
+
+    pub block_duration: f32,
+    pub block_cooldown: f32,
+    pub block_reflect_speed_mult: f32,
+
+    pub max_jumps: u8,
+
+    /// Horizontal velocity imparted to the victim on a non-blocked hit.
+    /// `0.0` disables knockback.
+    pub projectile_knockback: f32,
+    /// How long the victim loses horizontal control after a hit, in seconds.
+    pub knockback_duration: f32,
 }
 
 impl Default for Config {
@@ -32,6 +38,14 @@ impl Default for Config {
             projectile_damage: 10.0,
             projectile_radius: 5.0,
             projectile_lifetime: 2.0,
+            base_ammo: 6,
+            base_health: 100.0,
+            block_duration: 0.5,
+            block_cooldown: 1.0,
+            block_reflect_speed_mult: 1.2,
+            max_jumps: 2,
+            projectile_knockback: 40.0,
+            knockback_duration: 0.2,
         }
     }
 }

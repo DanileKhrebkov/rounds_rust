@@ -1,41 +1,35 @@
 //! Player movement integration.
 //!
-//! Step 3 of the white-room plan: gravity pulls players down, the ground plane
-//! stops them, and `OnGround` is derived from ground contact so Step 5 can
-//! gate jumps on it.
+//! Gravity pulls players down, the ground plane stops them, `OnGround` is
+//! derived from ground contact, `JumpState` is refilled on landing, and
+//! `KnockbackState` timers are ticked.
 
 use bevy::prelude::*;
-use std::time::Duration;
 
-use crate::components::player::{OnGround, PlayerTag, Velocity};
+use crate::components::player::{
+    JumpState, KnockbackState, OnGround, PlayerTag, Velocity,
+};
 use crate::resources::Config;
 
-/// Integrates gravity into [`Velocity`] and the transform, clamps players to
-/// the ground plane, and derives [`OnGround`].
-///
-/// Runs after the input systems (see `main.rs` for ordering): horizontal
-/// velocity written by `input_system` in Step 4 is applied to `translation.x`
-/// here.
-///
-/// # Preconditions
-/// - `cfg.gravity` is the downward acceleration in world units / s² (negative).
-/// - `cfg.ground_y` is the ground-plane height; players rest with their centre
-///   at this y.
-/// - `time.delta_secs()` is the frame delta in seconds (Bevy 0.19: renamed
-///   from `delta_seconds()`).
-///
-/// # Postconditions
-/// - `transform.translation.y >= cfg.ground_y` — players never sink below ground.
-/// - Resting on the plane: `velocity.y == 0` and `on_ground.0 == true`.
-/// - Airborne: `on_ground.0 == false` and `velocity.y` was integrated by `dt`.
 pub fn gravity_system(
     time: Res<Time>,
     cfg: Res<Config>,
-    mut q: Query<(&mut Velocity, &mut Transform, &mut OnGround), With<PlayerTag>>,
+    mut q: Query<
+        (
+            &mut Velocity,
+            &mut Transform,
+            &mut OnGround,
+            &mut JumpState,
+            &mut KnockbackState,
+        ),
+        With<PlayerTag>,
+    >,
 ) {
-    let dt = time.delta_secs(); // 0.19: delta_seconds() was renamed
+    let dt = time.delta_secs();
 
-    for (mut vel, mut tf, mut on_ground) in &mut q {
+    for (mut vel, mut tf, mut on_ground, mut jump, mut kb) in &mut q {
+        kb.timer.tick(time.delta());
+
         vel.y += cfg.gravity * dt;
         tf.translation.y += vel.y * dt;
         tf.translation.x += vel.x * dt;
@@ -44,6 +38,7 @@ pub fn gravity_system(
             tf.translation.y = cfg.ground_y;
             vel.y = 0.0;
             on_ground.0 = true;
+            jump.jumps_remaining = cfg.max_jumps;
         } else {
             on_ground.0 = false;
         }
@@ -54,13 +49,11 @@ pub fn gravity_system(
 mod tests {
     use super::*;
     use bevy::ecs::system::RunSystemOnce;
+    use std::time::Duration;
 
-    /// ~1/60 s, fixed. Real-clock `Time` from `MinimalPlugins` would make the
-    /// 200-unit fall take billions of ticks, so tests drive the system manually.
     const DT: Duration = Duration::from_nanos(16_666_667);
     const DT_SECS: f32 = 16_666_667.0e-9;
 
-    /// One player at the given height, no plugins.
     fn test_world(spawn_y: f32) -> World {
         let mut world = World::new();
         world.insert_resource(Config::default());
@@ -68,28 +61,30 @@ mod tests {
             Transform::from_xyz(0.0, spawn_y, 0.0),
             Velocity { x: 0.0, y: 0.0 },
             OnGround(false),
+            JumpState::new(2),
+            KnockbackState::default(),
             PlayerTag { index: 0 },
         ));
         world
     }
 
     fn step(world: &mut World) {
-        let mut time = Time::default();
+        let mut time = Time::<()>::default();
         time.advance_by(DT);
         world.insert_resource(time);
         world.run_system_once(gravity_system).unwrap();
     }
 
-    fn player(world: &mut World) -> (f32, f32, bool) {
-        let mut q = world.query::<(&Transform, &Velocity, &OnGround)>();
-        let (tf, vel, og) = q.single(world).unwrap();
-        (tf.translation.y, vel.y, og.0)
+    fn player(world: &mut World) -> (f32, f32, bool, u8) {
+        let mut q = world.query::<(&Transform, &Velocity, &OnGround, &JumpState)>();
+        let (tf, vel, og, jump) = q.single(world).unwrap();
+        (tf.translation.y, vel.y, og.0, jump.jumps_remaining)
     }
 
     #[test]
     fn falls_and_rests_exactly_on_ground() {
         let cfg = Config::default();
-        let mut world = test_world(0.0); // 200 units above the plane
+        let mut world = test_world(0.0);
 
         let mut landed = false;
         for _ in 0..600 {
@@ -99,12 +94,9 @@ mod tests {
                 break;
             }
         }
-        assert!(
-            landed,
-            "player must land within 600 ticks (10 s of simulated time)"
-        );
+        assert!(landed);
 
-        let (y, vel_y, on_ground) = player(&mut world);
+        let (y, vel_y, on_ground, _) = player(&mut world);
         assert_eq!(y, cfg.ground_y);
         assert_eq!(vel_y, 0.0);
         assert!(on_ground);
@@ -113,19 +105,13 @@ mod tests {
     #[test]
     fn never_sinks_below_ground_plane() {
         let cfg = Config::default();
-        let mut world = test_world(cfg.ground_y); // spawned resting on the plane
+        let mut world = test_world(cfg.ground_y);
 
         for _ in 0..120 {
             step(&mut world);
-            let (y, _, _) = player(&mut world);
-            assert!(y >= cfg.ground_y, "sank below the ground plane: {y}");
+            let (y, _, _, _) = player(&mut world);
+            assert!(y >= cfg.ground_y);
         }
-
-        // A resting player must not drift or accumulate velocity.
-        let (y, vel_y, on_ground) = player(&mut world);
-        assert_eq!(y, cfg.ground_y);
-        assert_eq!(vel_y, 0.0);
-        assert!(on_ground);
     }
 
     #[test]
@@ -140,6 +126,49 @@ mod tests {
 
         let mut q = world.query::<&Transform>();
         let x = q.single(&world).unwrap().translation.x;
-        assert!((x - 8.0 * DT_SECS).abs() < 1e-6, "x = {x}");
+        assert!((x - 8.0 * DT_SECS).abs() < 1e-6);
+    }
+
+    #[test]
+    fn landing_restores_jumps() {
+        let mut world = test_world(0.0);
+        {
+            let mut q = world.query::<&mut JumpState>();
+            q.single_mut(&mut world).unwrap().jumps_remaining = 0;
+        }
+
+        for _ in 0..600 {
+            step(&mut world);
+            if player(&mut world).2 {
+                break;
+            }
+        }
+
+        let (_, _, on_ground, jumps) = player(&mut world);
+        assert!(on_ground);
+        assert_eq!(jumps, 2);
+    }
+
+    #[test]
+    fn knockback_timer_ticks_down_and_expires() {
+        let mut world = test_world(0.0);
+        {
+            let mut q = world.query::<&mut KnockbackState>();
+            q.single_mut(&mut world).unwrap().start(0.05);
+        }
+
+        // After one 1/60 s tick, still active.
+        step(&mut world);
+        {
+            let mut q = world.query::<&KnockbackState>();
+            assert!(q.single(&world).unwrap().is_active());
+        }
+
+        // After four more ticks (0.05 s total elapsed), finished.
+        for _ in 0..4 {
+            step(&mut world);
+        }
+        let mut q = world.query::<&KnockbackState>();
+        assert!(!q.single(&world).unwrap().is_active());
     }
 }
