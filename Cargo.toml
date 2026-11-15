@@ -1,0 +1,16 @@
+[package]
+name = "rounds_white"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.19", default-features = false, features = [
+    "bevy_sprite", "bevy_text", "bevy_ui", "bevy_render",
+    "bevy_core_pipeline", "multi_threaded", "x11",
+    "serialize",
+] }
+rand = "0.10"
+lightyear = "0.30"
+lightyear_inputs_leafwing = "0.30"
+serde = { version = "1", features = ["derive"] }
+leafwing-input-manager = "0.21"
